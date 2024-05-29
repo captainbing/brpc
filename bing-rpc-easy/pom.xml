@@ -7,6 +7,7 @@
     <groupId>com.abing</groupId>
     <artifactId>bing-rpc-easy</artifactId>
     <version>1.0-SNAPSHOT</version>
+
     <build>
         <plugins>
             <plugin>
