@@ -1,8 +1,9 @@
-package com.abing.rpc.serializer;
+package com.abing.rpc.serializer.impl;
 
 
 import com.abing.rpc.model.RpcRequest;
 import com.abing.rpc.model.RpcResponse;
+import com.abing.rpc.serializer.Serializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
@@ -12,7 +13,7 @@ import java.io.IOException;
  * @Date 2024/5/29 14:53
  * @Description JSON序列化
  */
-public class JsonSerializer implements Serializer{
+public class JsonSerializer implements Serializer {
 
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -45,7 +46,7 @@ public class JsonSerializer implements Serializer{
      */
     private <T> T handleRequest(RpcRequest rpcRequest, Class<T> type) throws IOException {
 
-        Object[] param = rpcRequest.getParam();
+        Object[] param = rpcRequest.getArgs();
         Class<?>[] paramTypes = rpcRequest.getParamTypes();
 
         for (int i = 0; i < paramTypes.length; i++) {

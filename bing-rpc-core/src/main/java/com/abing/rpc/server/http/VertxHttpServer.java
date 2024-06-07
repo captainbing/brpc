@@ -1,5 +1,6 @@
-package com.abing.rpc.server;
+package com.abing.rpc.server.http;
 
+import com.abing.rpc.server.Server;
 import io.vertx.core.Vertx;
 
 /**
@@ -7,9 +8,10 @@ import io.vertx.core.Vertx;
  * @Date 2024/5/14 14:27
  * @Description
  */
-public class VertxHttpServer implements HttpServer{
+public class VertxHttpServer implements Server {
 
 
+    @Override
     public void doStart(int port) {
 
         Vertx vertx = Vertx.vertx();

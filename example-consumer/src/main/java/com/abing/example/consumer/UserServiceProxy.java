@@ -6,7 +6,7 @@ import com.abing.example.common.model.User;
 import com.abing.example.common.service.UserService;
 import com.abing.rpc.model.RpcRequest;
 import com.abing.rpc.model.RpcResponse;
-import com.abing.rpc.serializer.JdkSerializer;
+import com.abing.rpc.serializer.impl.JdkSerializer;
 import com.abing.rpc.serializer.Serializer;
 
 import java.io.IOException;
@@ -28,7 +28,7 @@ public class UserServiceProxy implements UserService {
                                           .serviceName(UserService.class.getName())
                                           .methodName("getUser")
                                           .paramTypes(new Class[]{User.class})
-                                          .param(new Object[]{user})
+                                          .args(new Object[]{user})
                                           .build();
         try {
             byte[] requestByte = serializer.serialize(rpcRequest);

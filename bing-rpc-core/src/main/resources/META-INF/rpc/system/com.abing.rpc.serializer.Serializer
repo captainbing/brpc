@@ -1,1 +1,1 @@
-jdk=com.abing.rpc.serializer.JdkSerializer
+jdk=com.abing.rpc.serializer.impl.JdkSerializer

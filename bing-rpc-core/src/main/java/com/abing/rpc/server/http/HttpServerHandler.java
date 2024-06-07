@@ -1,10 +1,9 @@
-package com.abing.rpc.server;
+package com.abing.rpc.server.http;
 
-import com.abing.rpc.BRpcApplication;
+import com.abing.rpc.RpcApplication;
 import com.abing.rpc.model.RpcRequest;
 import com.abing.rpc.model.RpcResponse;
 import com.abing.rpc.registry.LocalRegistry;
-import com.abing.rpc.serializer.JdkSerializer;
 import com.abing.rpc.serializer.Serializer;
 import com.abing.rpc.serializer.SerializerFactory;
 import io.vertx.core.Handler;
@@ -26,7 +25,7 @@ public class HttpServerHandler implements Handler<HttpServerRequest> {
     @Override
     public void handle(HttpServerRequest request) {
 
-        final Serializer serializer = SerializerFactory.getInstance(BRpcApplication.getBRpcConfig().getSerializer());
+        final Serializer serializer = SerializerFactory.getInstance(RpcApplication.getRpcConfig().getSerializer());
 
         request.bodyHandler(body -> {
             RpcRequest rpcRequest = null;
@@ -48,7 +47,7 @@ public class HttpServerHandler implements Handler<HttpServerRequest> {
             try {
                 Class<?> serviceClass = LocalRegistry.get(rpcRequest.getServiceName());
                 Method serviceClassMethod = serviceClass.getMethod(rpcRequest.getMethodName(), rpcRequest.getParamTypes());
-                Object result = serviceClassMethod.invoke(serviceClass.newInstance(), rpcRequest.getParam());
+                Object result = serviceClassMethod.invoke(serviceClass.newInstance(), rpcRequest.getArgs());
 
                 rpcResponse.setData(result);
                 rpcResponse.setDataTypes(serviceClassMethod.getReturnType());

@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * @Author CaptainBing
  * @Date 2024/5/14 14:43
- * @Description
+ * @Description 简易版 本地注册中心
  */
 public class LocalRegistry {
 

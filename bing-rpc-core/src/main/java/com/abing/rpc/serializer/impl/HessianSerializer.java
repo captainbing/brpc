@@ -1,4 +1,6 @@
-package com.abing.rpc.serializer;
+package com.abing.rpc.serializer.impl;
+
+import com.abing.rpc.serializer.Serializer;
 
 import java.io.IOException;
 
@@ -7,7 +9,7 @@ import java.io.IOException;
  * @Date 2024/5/29 15:21
  * @Description
  */
-public class HessianSerializer implements Serializer{
+public class HessianSerializer implements Serializer {
 
     @Override
     public <T> byte[] serialize(T t) throws IOException {

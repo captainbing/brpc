@@ -5,7 +5,7 @@ package com.abing.rpc.server;
  * @Date 2024/5/14 14:26
  * @Description
  */
-public interface HttpServer {
+public interface Server {
 
     /**
      * 启动服务器

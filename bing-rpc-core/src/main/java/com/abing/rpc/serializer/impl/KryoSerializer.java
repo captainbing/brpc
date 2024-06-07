@@ -1,4 +1,6 @@
-package com.abing.rpc.serializer;
+package com.abing.rpc.serializer.impl;
+
+import com.abing.rpc.serializer.Serializer;
 
 import java.io.IOException;
 

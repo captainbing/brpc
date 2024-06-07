@@ -1,3 +1,3 @@
-json=com.abing.rpc.serializer.JsonSerializer
-kryo=com.abing.rpc.serializer.KryoSerializer
-hessian=com.abing.rpc.serializer.HessianSerializer
+json=com.abing.rpc.serializer.impl.JsonSerializer
+kryo=com.abing.rpc.serializer.impl.KryoSerializer
+hessian=com.abing.rpc.serializer.impl.HessianSerializer

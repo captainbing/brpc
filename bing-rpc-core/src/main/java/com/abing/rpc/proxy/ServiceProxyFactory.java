@@ -1,6 +1,6 @@
 package com.abing.rpc.proxy;
 
-import com.abing.rpc.BRpcApplication;
+import com.abing.rpc.RpcApplication;
 
 import java.lang.reflect.Proxy;
 
@@ -19,7 +19,7 @@ public class ServiceProxyFactory {
      * @param <T>
      */
     public static <T> T getProxy(Class<T> serviceClass){
-        if (BRpcApplication.getBRpcConfig().isMock()){
+        if (RpcApplication.getRpcConfig().isMock()){
             return getMockServiceProxy(serviceClass);
         }
         return getRemoteServiceProxy(serviceClass);

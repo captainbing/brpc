@@ -1,4 +1,4 @@
-com.abing.rpc.serializer.JdkSerializer
-com.abing.rpc.serializer.JsonSerializer
-com.abing.rpc.serializer.KryoSerializer
-com.abing.rpc.serializer.HessianSerializer
+com.abing.rpc.serializer.impl.JdkSerializer
+com.abing.rpc.serializer.impl.JsonSerializer
+com.abing.rpc.serializer.impl.KryoSerializer
+com.abing.rpc.serializer.impl.HessianSerializer

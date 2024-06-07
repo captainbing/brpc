@@ -1,5 +1,6 @@
 package com.abing.rpc.model;
 
+import com.abing.rpc.constant.RpcConstant;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,10 +25,14 @@ public class RpcRequest implements Serializable {
     private String serviceName;
 
     /**
+     * 服务版本
+     */
+    private String serviceVersion = RpcConstant.DEFAULT_SERVICE_VERSION;
+
+    /**
      * 方法名称
      */
     private String methodName;
-
 
     /**
      * 参数类型列表
@@ -37,6 +42,6 @@ public class RpcRequest implements Serializable {
     /**
      * 参数列表
      */
-    private Object[] param;
+    private Object[] args;
 
 }
