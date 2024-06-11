@@ -44,5 +44,10 @@ public interface Registry {
      */
     void destroy();
 
+    /**
+     * 心跳机制
+     */
+    void heartBeat();
+
 
 }

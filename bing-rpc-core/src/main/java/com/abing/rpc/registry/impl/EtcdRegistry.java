@@ -1,5 +1,7 @@
 package com.abing.rpc.registry.impl;
 
+import cn.hutool.cron.CronUtil;
+import cn.hutool.cron.task.Task;
 import cn.hutool.json.JSONUtil;
 import com.abing.rpc.config.RegistryConfig;
 import com.abing.rpc.model.ServiceMetaInfo;
@@ -12,7 +14,9 @@ import io.etcd.jetcd.options.PutOption;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -34,7 +38,10 @@ public class EtcdRegistry implements Registry {
      */
     private static final String ETCD_ROOT_PATH = "/rpc/";
 
-
+    /**
+     * 本地注册的服务节点key集合
+     */
+    private static final Set<String> localRegisterNodeKeySet = new HashSet<>();
 
     @Override
     public void init(RegistryConfig registryConfig) {
@@ -43,6 +50,8 @@ public class EtcdRegistry implements Registry {
                        .connectTimeout(Duration.ofMillis(registryConfig.getTimeout()))
                        .build();
         kvClient = client.getKVClient();
+        // 开启心跳机制
+        heartBeat();
     }
 
     @Override
@@ -63,11 +72,16 @@ public class EtcdRegistry implements Registry {
 
         kvClient.put(key, value, putOption).get();
 
+        // 注册成功后，将key添加到本地缓存中
+        localRegisterNodeKeySet.add(registryKey);
+
     }
 
     @Override
     public void unRegister(ServiceMetaInfo serviceMetaInfo) throws Exception{
-        kvClient.delete(ByteSequence.from(ETCD_ROOT_PATH + serviceMetaInfo.getServiceNodeKey(), StandardCharsets.UTF_8)).get();
+        String registerKey = ETCD_ROOT_PATH + serviceMetaInfo.getServiceNodeKey();
+        kvClient.delete(ByteSequence.from(registerKey, StandardCharsets.UTF_8)).get();
+        localRegisterNodeKeySet.remove(registerKey);
     }
 
     @Override
@@ -95,6 +109,64 @@ public class EtcdRegistry implements Registry {
     @Override
     public void destroy() {
 
+        offlineNode();
+        close();
+
+    }
+
+    @Override
+    public void heartBeat() {
+
+        // 续约,每十秒检查服务端的服务注册的信息
+        CronUtil.schedule("*/10 * * * * *", (Task) () -> {
+            // 获取租约列表
+            for (String key : localRegisterNodeKeySet) {
+                try {
+                    List<KeyValue> keyValues = kvClient.get(ByteSequence.from(key, StandardCharsets.UTF_8))
+                                                 .get()
+                                                 .getKvs();
+
+                    if (keyValues.isEmpty()){
+                        continue;
+                    }
+                    KeyValue keyValue = keyValues.get(0);
+                    String value = keyValue.getValue().toString(StandardCharsets.UTF_8);
+                    ServiceMetaInfo serviceMetaInfo = JSONUtil.toBean(value, ServiceMetaInfo.class);
+                    register(serviceMetaInfo);
+
+                } catch (Exception e) {
+                    throw new RuntimeException(key + "续签失败" + e);
+                }
+
+            }
+        });
+
+        CronUtil.setMatchSecond(true);
+        CronUtil.start();
+
+    }
+
+    /**
+     * 下线所有节点
+     */
+    private void offlineNode(){
+
+        for (String key : localRegisterNodeKeySet) {
+
+            try {
+                kvClient.delete(ByteSequence.from(key, StandardCharsets.UTF_8)).get();
+            } catch (Exception e) {
+                throw new RuntimeException(key + "节点下线失败" + e);
+            }
+
+        }
+
+    }
+
+    /**
+     * 关闭资源
+     */
+    private void close(){
         // 释放资源
         if (kvClient != null) {
             kvClient.close();
@@ -102,7 +174,6 @@ public class EtcdRegistry implements Registry {
         if (client != null) {
             client.close();
         }
-
     }
 
     public static void main(String[] args) throws ExecutionException, InterruptedException {
