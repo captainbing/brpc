@@ -1,5 +1,6 @@
 package com.abing.rpc.registry.impl;
 
+import cn.hutool.core.collection.ConcurrentHashSet;
 import cn.hutool.cron.CronUtil;
 import cn.hutool.cron.task.Task;
 import cn.hutool.json.JSONUtil;
@@ -12,6 +13,7 @@ import io.etcd.jetcd.kv.DeleteResponse;
 import io.etcd.jetcd.kv.GetResponse;
 import io.etcd.jetcd.options.GetOption;
 import io.etcd.jetcd.options.PutOption;
+import io.etcd.jetcd.watch.WatchEvent;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -48,6 +50,11 @@ public class EtcdRegistry implements Registry {
      * 注册中心缓存
      */
     private static final RegistryCache registryCache = new RegistryCache();
+
+    /**
+     * 正在监听的key集合
+     */
+    private static final Set<String> watchingKeySet = new ConcurrentHashSet<>();
 
     @Override
     public void init(RegistryConfig registryConfig) {
@@ -98,10 +105,7 @@ public class EtcdRegistry implements Registry {
             return serviceMetaInfoList;
         }
         // 缓存为空，则从etcd中获取
-        serviceMetaInfoList = getServiceMetaInfoFromEtcd(serviceKey);
-        // 将获取到的服务列表缓存到本地
-        registryCache.writeCache(serviceMetaInfoList);
-        return serviceMetaInfoList;
+        return getServiceMetaInfoFromEtcd(serviceKey);
     }
 
     /**
@@ -119,10 +123,16 @@ public class EtcdRegistry implements Registry {
                                          .get()
                                          .getKvs();
 
-            return kvs.stream().map(keyValue -> {
+            List<ServiceMetaInfo> serviceMetaInfoList = kvs.stream().map(keyValue -> {
+                String key = keyValue.getKey().toString(StandardCharsets.UTF_8);
+                // 监听注册中心key的变化
+                watch(key);
                 String value = keyValue.getValue().toString(StandardCharsets.UTF_8);
                 return JSONUtil.toBean(value, ServiceMetaInfo.class);
             }).collect(Collectors.toList());
+            // 将获取到的服务列表缓存到本地
+            registryCache.writeCache(serviceMetaInfoList);
+            return serviceMetaInfoList;
         } catch (Exception e) {
             throw new RuntimeException("获取服务列表失败",e);
         }
@@ -195,6 +205,29 @@ public class EtcdRegistry implements Registry {
         }
         if (client != null) {
             client.close();
+        }
+    }
+
+    @Override
+    public void watch(String serviceNodeKey) {
+
+        Watch watchClient = client.getWatchClient();
+        boolean newWatch = watchingKeySet.add(serviceNodeKey);
+        if (newWatch){
+            watchClient.watch(ByteSequence.from(serviceNodeKey, StandardCharsets.UTF_8), response -> {
+                for (WatchEvent event : response.getEvents()) {
+                    switch (event.getEventType()){
+                        case DELETE:
+                            registryCache.clearCache();
+                        case PUT:
+                            break;
+                        case UNRECOGNIZED:
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            });
         }
     }
 
