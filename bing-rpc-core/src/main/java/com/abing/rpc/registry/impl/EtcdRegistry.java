@@ -6,6 +6,7 @@ import cn.hutool.json.JSONUtil;
 import com.abing.rpc.config.RegistryConfig;
 import com.abing.rpc.model.ServiceMetaInfo;
 import com.abing.rpc.registry.Registry;
+import com.abing.rpc.registry.RegistryCache;
 import io.etcd.jetcd.*;
 import io.etcd.jetcd.kv.DeleteResponse;
 import io.etcd.jetcd.kv.GetResponse;
@@ -42,6 +43,11 @@ public class EtcdRegistry implements Registry {
      * 本地注册的服务节点key集合
      */
     private static final Set<String> localRegisterNodeKeySet = new HashSet<>();
+
+    /**
+     * 注册中心缓存
+     */
+    private static final RegistryCache registryCache = new RegistryCache();
 
     @Override
     public void init(RegistryConfig registryConfig) {
@@ -87,6 +93,23 @@ public class EtcdRegistry implements Registry {
     @Override
     public List<ServiceMetaInfo> serviceDiscovery(String serviceKey) {
 
+        List<ServiceMetaInfo> serviceMetaInfoList = registryCache.readCache();
+        if (!serviceMetaInfoList.isEmpty()){
+            return serviceMetaInfoList;
+        }
+        // 缓存为空，则从etcd中获取
+        serviceMetaInfoList = getServiceMetaInfoFromEtcd(serviceKey);
+        // 将获取到的服务列表缓存到本地
+        registryCache.writeCache(serviceMetaInfoList);
+        return serviceMetaInfoList;
+    }
+
+    /**
+     * 从etcd中获取服务注册信息
+     * @param serviceKey
+     * @return
+     */
+    private List<ServiceMetaInfo> getServiceMetaInfoFromEtcd(String serviceKey) {
         // 前缀搜索
         String searchPrefix = ETCD_ROOT_PATH + serviceKey + "/";
 
@@ -103,7 +126,6 @@ public class EtcdRegistry implements Registry {
         } catch (Exception e) {
             throw new RuntimeException("获取服务列表失败",e);
         }
-
     }
 
     @Override
