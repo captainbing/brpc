@@ -10,6 +10,7 @@ import com.abing.rpc.registry.Registry;
 import com.abing.rpc.registry.RegistryFactory;
 import com.abing.rpc.server.Server;
 import com.abing.rpc.server.http.VertxHttpServer;
+import com.abing.rpc.server.tcp.VertxTcpServer;
 
 /**
  * @Author CaptainBing
@@ -44,10 +45,10 @@ public class EasyProviderExample {
 
         LocalRegistry.register(UserService.class.getName(),UserServiceImpl.class);
 
-        Server httpServer = new VertxHttpServer();
-
-        httpServer.doStart(rpcConfig.getPort());
-
+//        Server httpServer = new VertxHttpServer();
+//        httpServer.doStart(rpcConfig.getPort());
+        VertxTcpServer vertxTcpServer = new VertxTcpServer();
+        vertxTcpServer.doStart(8888);
     }
 
 

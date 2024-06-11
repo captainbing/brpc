@@ -1,6 +1,7 @@
 package com.abing.rpc.proxy;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.IdUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import com.abing.rpc.RpcApplication;
@@ -9,15 +10,26 @@ import com.abing.rpc.constant.RpcConstant;
 import com.abing.rpc.model.RpcRequest;
 import com.abing.rpc.model.RpcResponse;
 import com.abing.rpc.model.ServiceMetaInfo;
+import com.abing.rpc.protocol.ProtocolConstant;
+import com.abing.rpc.protocol.ProtocolMessage;
+import com.abing.rpc.protocol.ProtocolMessageSerializerEnum;
+import com.abing.rpc.protocol.ProtocolMessageTypeEnum;
 import com.abing.rpc.registry.Registry;
 import com.abing.rpc.registry.RegistryFactory;
 import com.abing.rpc.serializer.Serializer;
 import com.abing.rpc.serializer.SerializerFactory;
+import com.abing.rpc.server.codec.ProtocolMessageDecoder;
+import com.abing.rpc.server.codec.ProtocolMessageEncoder;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.net.NetClient;
+import io.vertx.core.net.NetSocket;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @Author CaptainBing
@@ -30,7 +42,6 @@ public class ServiceProxy implements InvocationHandler {
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 
-        Serializer serializer = SerializerFactory.getInstance(RpcApplication.getRpcConfig().getSerializer());
         String serviceName = method.getDeclaringClass().getName();
         RpcRequest rpcRequest = RpcRequest.builder()
                                           .serviceName(serviceName)
@@ -38,36 +49,65 @@ public class ServiceProxy implements InvocationHandler {
                                           .paramTypes(method.getParameterTypes())
                                           .args(args)
                                           .build();
-        try {
-            // 序列化
-            byte[] requestByte = serializer.serialize(rpcRequest);
+        // 序列化
+        CompletableFuture<RpcResponse> responseFuture = new CompletableFuture<>();
 
-
-            // 从注册中心获取服务提供者请求地址
-            RpcConfig rpcConfig = RpcApplication.getRpcConfig();
-            Registry registry = RegistryFactory.getInstance(rpcConfig.getRegistryConfig().getRegistry());
-            ServiceMetaInfo serviceMetaInfo = new ServiceMetaInfo();
-            serviceMetaInfo.setServiceName(serviceName);
-            serviceMetaInfo.setServiceVersion(RpcConstant.DEFAULT_SERVICE_VERSION);
-            List<ServiceMetaInfo> serviceMetaInfoList = registry.serviceDiscovery(serviceMetaInfo.getServiceKey());
-            if (CollUtil.isEmpty(serviceMetaInfoList)) {
-                throw new RuntimeException("暂无服务地址");
-            }
-            ServiceMetaInfo selectedServiceMetaInfo = serviceMetaInfoList.get(0);
-
-
-            // 发送请求
-            // TODO 地址被硬编码，需要使用注册中心和服务发现机制解决
-            HttpResponse httpResponse = HttpRequest.post(selectedServiceMetaInfo.getServiceAddress())
-                                                   .body(requestByte)
-                                                   .timeout(5000)
-                                                   .execute();
-            byte[] result = httpResponse.bodyBytes();
-            RpcResponse rpcResponse = serializer.deserialize(result, RpcResponse.class);
-            return rpcResponse.getData();
-        } catch (IOException e) {
-            e.printStackTrace();
+        // 从注册中心获取服务提供者请求地址
+        RpcConfig rpcConfig = RpcApplication.getRpcConfig();
+        Registry registry = RegistryFactory.getInstance(rpcConfig.getRegistryConfig().getRegistry());
+        ServiceMetaInfo serviceMetaInfo = new ServiceMetaInfo();
+        serviceMetaInfo.setServiceName(serviceName);
+        serviceMetaInfo.setServiceVersion(RpcConstant.DEFAULT_SERVICE_VERSION);
+        List<ServiceMetaInfo> serviceMetaInfoList = registry.serviceDiscovery(serviceMetaInfo.getServiceKey());
+        if (CollUtil.isEmpty(serviceMetaInfoList)) {
+            throw new RuntimeException("暂无服务地址");
         }
-        return null;
+        ServiceMetaInfo selectedServiceMetaInfo = serviceMetaInfoList.get(0);
+
+        // 发送TCP请求
+        Vertx vertx = Vertx.vertx();
+        NetClient tcpClient = vertx.createNetClient();
+        tcpClient.connect(selectedServiceMetaInfo.getServicePort(),selectedServiceMetaInfo.getServiceHost(), result -> {
+            if (result.succeeded()) {
+                System.out.println("connect tcp server");
+                NetSocket socket = result.result();
+
+                ProtocolMessage<RpcRequest> rpcRequestProtocolMessage = new ProtocolMessage<>();
+
+                ProtocolMessage.Header header = new ProtocolMessage.Header();
+
+                header.setMagic(ProtocolConstant.MAGIC);
+                header.setVersion(ProtocolConstant.VERSION);
+                header.setSerializer((byte) ProtocolMessageSerializerEnum.valueOf(RpcApplication.getRpcConfig().getSerializer()).getKey());
+                header.setType((byte) ProtocolMessageTypeEnum.REQUEST.getKey());
+                header.setRequestId(IdUtil.getSnowflakeNextId());
+
+                rpcRequestProtocolMessage.setHeader(header);
+                rpcRequestProtocolMessage.setBody(rpcRequest);
+
+                Buffer encodeBuffer = null;
+                try {
+                    encodeBuffer = ProtocolMessageEncoder.encode(rpcRequestProtocolMessage);
+                    socket.write(encodeBuffer);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                // 处理响应
+                socket.handler(buffer -> {
+                    try {
+                        ProtocolMessage<RpcResponse> rpcResponseProtocolMessage = (ProtocolMessage<RpcResponse>) ProtocolMessageDecoder.decode(buffer);
+                        responseFuture.complete(rpcResponseProtocolMessage.getBody());
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+            }
+        });
+
+        RpcResponse response = responseFuture.get();
+        tcpClient.close();
+        return response.getData();
+
     }
 }

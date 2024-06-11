@@ -1,6 +1,6 @@
 package com.abing.rpc.config;
 
-import com.abing.rpc.serializer.SerializerKeys;
+import com.abing.rpc.protocol.ProtocolMessageSerializerEnum;
 import lombok.Data;
 
 /**
@@ -39,7 +39,7 @@ public class RpcConfig {
     /**
      * 序列化器
      */
-    private String serializer = SerializerKeys.JDK;
+    private String serializer = ProtocolMessageSerializerEnum.JDK.name();
 
     /**
      * 注册中心配置
