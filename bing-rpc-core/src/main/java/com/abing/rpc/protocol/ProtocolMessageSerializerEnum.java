@@ -35,5 +35,21 @@ public enum ProtocolMessageSerializerEnum {
         throw new EnumConstantNotPresentException(ProtocolMessageSerializerEnum.class, "序列化器不存在");
     }
 
+    /**
+     * 根据枚举名称获取序列化器
+     *
+     * @param name
+     * @return
+     */
+    public static ProtocolMessageSerializerEnum of(String name){
+
+        for (ProtocolMessageSerializerEnum value : values()) {
+            if(value.name() == name){
+                return value;
+            }
+        }
+        throw new EnumConstantNotPresentException(ProtocolMessageSerializerEnum.class, "序列化器不存在");
+    }
+
 
 }

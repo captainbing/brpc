@@ -20,5 +20,9 @@ public interface ProtocolConstant {
      * 版本号
      */
     byte VERSION = 0x01;
+    /**
+     * 请求体长度
+     */
+    int BODY_LEN_POSITION = 13;
 
 }

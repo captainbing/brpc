@@ -20,6 +20,7 @@ import com.abing.rpc.serializer.Serializer;
 import com.abing.rpc.serializer.SerializerFactory;
 import com.abing.rpc.server.codec.ProtocolMessageDecoder;
 import com.abing.rpc.server.codec.ProtocolMessageEncoder;
+import com.abing.rpc.server.tcp.VertxTcpClient;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.net.NetClient;
@@ -30,6 +31,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 /**
  * @Author CaptainBing
@@ -40,7 +42,7 @@ public class ServiceProxy implements InvocationHandler {
 
 
     @Override
-    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    public Object invoke(Object proxy, Method method, Object[] args) {
 
         String serviceName = method.getDeclaringClass().getName();
         RpcRequest rpcRequest = RpcRequest.builder()
@@ -49,65 +51,23 @@ public class ServiceProxy implements InvocationHandler {
                                           .paramTypes(method.getParameterTypes())
                                           .args(args)
                                           .build();
-        // 序列化
-        CompletableFuture<RpcResponse> responseFuture = new CompletableFuture<>();
-
-        // 从注册中心获取服务提供者请求地址
-        RpcConfig rpcConfig = RpcApplication.getRpcConfig();
-        Registry registry = RegistryFactory.getInstance(rpcConfig.getRegistryConfig().getRegistry());
-        ServiceMetaInfo serviceMetaInfo = new ServiceMetaInfo();
-        serviceMetaInfo.setServiceName(serviceName);
-        serviceMetaInfo.setServiceVersion(RpcConstant.DEFAULT_SERVICE_VERSION);
-        List<ServiceMetaInfo> serviceMetaInfoList = registry.serviceDiscovery(serviceMetaInfo.getServiceKey());
-        if (CollUtil.isEmpty(serviceMetaInfoList)) {
-            throw new RuntimeException("暂无服务地址");
-        }
-        ServiceMetaInfo selectedServiceMetaInfo = serviceMetaInfoList.get(0);
-
-        // 发送TCP请求
-        Vertx vertx = Vertx.vertx();
-        NetClient tcpClient = vertx.createNetClient();
-        tcpClient.connect(selectedServiceMetaInfo.getServicePort(),selectedServiceMetaInfo.getServiceHost(), result -> {
-            if (result.succeeded()) {
-                System.out.println("connect tcp server");
-                NetSocket socket = result.result();
-
-                ProtocolMessage<RpcRequest> rpcRequestProtocolMessage = new ProtocolMessage<>();
-
-                ProtocolMessage.Header header = new ProtocolMessage.Header();
-
-                header.setMagic(ProtocolConstant.MAGIC);
-                header.setVersion(ProtocolConstant.VERSION);
-                header.setSerializer((byte) ProtocolMessageSerializerEnum.valueOf(RpcApplication.getRpcConfig().getSerializer()).getKey());
-                header.setType((byte) ProtocolMessageTypeEnum.REQUEST.getKey());
-                header.setRequestId(IdUtil.getSnowflakeNextId());
-
-                rpcRequestProtocolMessage.setHeader(header);
-                rpcRequestProtocolMessage.setBody(rpcRequest);
-
-                Buffer encodeBuffer = null;
-                try {
-                    encodeBuffer = ProtocolMessageEncoder.encode(rpcRequestProtocolMessage);
-                    socket.write(encodeBuffer);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                // 处理响应
-                socket.handler(buffer -> {
-                    try {
-                        ProtocolMessage<RpcResponse> rpcResponseProtocolMessage = (ProtocolMessage<RpcResponse>) ProtocolMessageDecoder.decode(buffer);
-                        responseFuture.complete(rpcResponseProtocolMessage.getBody());
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-
+        try {
+            // 从注册中心获取服务提供者请求地址
+            RpcConfig rpcConfig = RpcApplication.getRpcConfig();
+            Registry registry = RegistryFactory.getInstance(rpcConfig.getRegistryConfig().getRegistry());
+            ServiceMetaInfo serviceMetaInfo = new ServiceMetaInfo();
+            serviceMetaInfo.setServiceName(serviceName);
+            serviceMetaInfo.setServiceVersion(RpcConstant.DEFAULT_SERVICE_VERSION);
+            List<ServiceMetaInfo> serviceMetaInfoList = registry.serviceDiscovery(serviceMetaInfo.getServiceKey());
+            if (CollUtil.isEmpty(serviceMetaInfoList)) {
+                throw new RuntimeException("暂无服务地址");
             }
-        });
-
-        RpcResponse response = responseFuture.get();
-        tcpClient.close();
-        return response.getData();
-
+            ServiceMetaInfo selectedServiceMetaInfo = serviceMetaInfoList.get(0);
+            // 发送TCP请求
+            RpcResponse rpcResponse = VertxTcpClient.doRequest(rpcRequest, selectedServiceMetaInfo);
+            return rpcResponse.getData();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

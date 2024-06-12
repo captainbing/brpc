@@ -26,8 +26,7 @@ public class VertxTcpHandler implements Handler<NetSocket> {
     public void handle(NetSocket socket) {
 
 
-        socket.handler(buffer -> {
-
+        TcpBufferHandlerWrapper tcpBufferHandlerWrapper = new TcpBufferHandlerWrapper(buffer -> {
             ProtocolMessage<RpcRequest> rpcRequestProtocolMessage;
 
             try {
@@ -67,6 +66,9 @@ public class VertxTcpHandler implements Handler<NetSocket> {
                 throw new RuntimeException("协议消息编码错误" + e);
             }
         });
+
+
+        socket.handler(tcpBufferHandlerWrapper);
 
     }
 }
