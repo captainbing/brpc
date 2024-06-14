@@ -15,7 +15,7 @@ public class RpcConfig {
     /**
      * 名称
      */
-    private String name = "bing-rpc";
+    private String name = "brpc";
 
     /**
      * 版本号
