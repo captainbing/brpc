@@ -75,7 +75,7 @@ public class ServiceProxy implements InvocationHandler {
             // 发送TCP请求
             RetryStrategy retryStrategy = RetryStrategyFactory.getInstance(rpcConfig.getRetryStrategy());
             RpcResponse rpcResponse = retryStrategy.doRetry(()-> VertxTcpClient.doRequest(rpcRequest, selectedServiceMetaInfo));
-            
+
             return rpcResponse.getData();
         } catch (Exception e) {
             throw new RuntimeException(e);
