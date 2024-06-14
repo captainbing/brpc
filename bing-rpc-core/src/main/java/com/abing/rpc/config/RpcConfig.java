@@ -1,6 +1,7 @@
 package com.abing.rpc.config;
 
 import com.abing.rpc.protocol.ProtocolMessageSerializerEnum;
+import com.abing.rpc.retry.enums.RetryStrategyKeys;
 import lombok.Data;
 
 /**
@@ -45,6 +46,11 @@ public class RpcConfig {
      * 注册中心配置
      */
     private RegistryConfig registryConfig = new RegistryConfig();
+
+    /**
+     * 重试策略
+     */
+    private String retryStrategy = RetryStrategyKeys.NO.name();
 
 
 }

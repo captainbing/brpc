@@ -7,6 +7,7 @@ import cn.hutool.http.HttpResponse;
 import com.abing.rpc.RpcApplication;
 import com.abing.rpc.config.RpcConfig;
 import com.abing.rpc.constant.RpcConstant;
+import com.abing.rpc.loadbalance.ConsistentHashLoadBalancer;
 import com.abing.rpc.model.RpcRequest;
 import com.abing.rpc.model.RpcResponse;
 import com.abing.rpc.model.ServiceMetaInfo;
@@ -16,6 +17,8 @@ import com.abing.rpc.protocol.ProtocolMessageSerializerEnum;
 import com.abing.rpc.protocol.ProtocolMessageTypeEnum;
 import com.abing.rpc.registry.Registry;
 import com.abing.rpc.registry.RegistryFactory;
+import com.abing.rpc.retry.RetryStrategy;
+import com.abing.rpc.retry.RetryStrategyFactory;
 import com.abing.rpc.serializer.Serializer;
 import com.abing.rpc.serializer.SerializerFactory;
 import com.abing.rpc.server.codec.ProtocolMessageDecoder;
@@ -29,7 +32,9 @@ import io.vertx.core.net.NetSocket;
 import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -62,9 +67,15 @@ public class ServiceProxy implements InvocationHandler {
             if (CollUtil.isEmpty(serviceMetaInfoList)) {
                 throw new RuntimeException("暂无服务地址");
             }
-            ServiceMetaInfo selectedServiceMetaInfo = serviceMetaInfoList.get(0);
+            // 负载均衡
+            Map<String,Object> requestParam = new HashMap<>(1);
+            requestParam.put("methodName",rpcRequest.getMethodName());
+            ServiceMetaInfo selectedServiceMetaInfo = new ConsistentHashLoadBalancer().select(requestParam, serviceMetaInfoList);
+
             // 发送TCP请求
-            RpcResponse rpcResponse = VertxTcpClient.doRequest(rpcRequest, selectedServiceMetaInfo);
+            RetryStrategy retryStrategy = RetryStrategyFactory.getInstance(rpcConfig.getRetryStrategy());
+            RpcResponse rpcResponse = retryStrategy.doRetry(()-> VertxTcpClient.doRequest(rpcRequest, selectedServiceMetaInfo));
+            
             return rpcResponse.getData();
         } catch (Exception e) {
             throw new RuntimeException(e);

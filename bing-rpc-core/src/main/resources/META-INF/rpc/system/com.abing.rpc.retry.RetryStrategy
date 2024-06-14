@@ -1,0 +1,2 @@
+NO=com.abing.rpc.retry.impl.NoRetryStrategy
+FIXED=com.abing.rpc.retry.impl.FixedIntervalRetryStrategy
