@@ -38,7 +38,7 @@ public class RpcInitBootstrap implements ImportBeanDefinitionRegistrar {
             return;
         }
 
-        log.info("brpc server not start");
+        log.info("brpc tcp server not start");
 
     }
 }

@@ -80,31 +80,4 @@ public class VertxTcpClient {
         return rpcResponse;
     }
 
-
-    private void start(int port){
-
-        Vertx vertx = Vertx.vertx();
-        NetClient tcpClient = vertx.createNetClient();
-
-        tcpClient.connect(port, "localhost", result -> {
-            if (result.succeeded()) {
-                NetSocket socket = result.result();
-                socket.write("Hello Server");
-                socket.handler(buffer -> {
-
-                    System.out.println("Server response: " + buffer.toString());
-                });
-            }else {
-                System.out.println("Connect failed");
-            }
-        });
-    }
-
-
-    public static void main(String[] args) {
-
-        new VertxTcpClient().start(8888);
-    }
-
-
 }
