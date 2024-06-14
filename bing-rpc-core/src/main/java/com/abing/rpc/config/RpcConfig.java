@@ -30,7 +30,7 @@ public class RpcConfig {
     /**
      * 主机端口
      */
-    private Integer port = 8080;
+    private Integer port = 20003;
 
     /**
      * 是否使用mock数据

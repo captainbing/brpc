@@ -19,7 +19,7 @@ public class ConfigUtils {
      * @param <T>
      */
     public static <T> T loadConfig(Class<T> clazz, String prefix){
-        return loadConfig(clazz,prefix,"");
+        return loadConfig(clazz,prefix,"rpc");
     }
 
 
